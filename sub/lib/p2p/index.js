@@ -81,7 +81,7 @@ class PeerToPeer {
         break
       case CHECK_MAIN:
 	logger.log("⬇  Peer requested for blockchain.");
-        this.write(peer, messages.getResponseMain(blockchain))
+        this.write(peer, messages.getResponseMain(blockchain, message.trans))
         break
       case RESPONSE_BLOCKCHAIN:
         this.handleBlockchainResponse(message)
@@ -148,15 +148,16 @@ class PeerToPeer {
 
   handleMainChain(message){
     const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
-    console.log(receivedBlocks.length)
     const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
     const latestBlockHeld = blockchain.latestBlock;
     if (latestBlockReceived.index == latestBlockHeld.index) {
       if(latestBlockReceived.timestamp< latestBlockHeld.timestamp){
-      	logger.log(`💤  changed`)
-	blockchain.replaceChain(receivedBlocks)
+        logger.log(`💤  changed`)
+        blockchain.replaceChain(receivedBlocks)
       }
 
+    } else if (parseInt(latestBlockReceived.data.split(' ')[1]) >= parseInt(latestBlockHeld.data.split(' ')[1])) {
+        return null;
     } else if (latestBlockHeld.hash === latestBlockReceived.previousHash) {
       logger.log(`👍  Previous hash received is equal to current hash. Append received block to blockchain.`)
       blockchain.addBlockFromPeer(latestBlockReceived)
@@ -169,14 +170,12 @@ class PeerToPeer {
       blockchain.replaceChain(receivedBlocks)
       this.broadcast(messages.getResponseChainMsg(blockchain))
     }
-
+    blockchain.mine(message.trans);
+    this.broadcastLatest()
   }
 
   handleTransaction(message){
-    blockchain.mine(message.trans);
-    this.broadcastLatest();
-    this.peers[0].write(JSON.stringify(messages.getCheckMain()))
-
+    this.peers[0].write(JSON.stringify(messages.getCheckMain(message.trans)))
   }
 }
 

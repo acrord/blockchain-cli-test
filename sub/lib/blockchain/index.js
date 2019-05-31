@@ -19,8 +19,10 @@ class Blockchain {
   }
 
   mine (seed) {
+    const lastBlock = this.latestBlock;
     const newBlock = this.generateNextBlock(seed)
-    if(this.addBlock(newBlock)) {
+    if(parseInt(lastBlock.data.split(' ')[1])>= parseInt(newBlock.data.split(' ')[1])) logger.log("cant")
+    else if(this.addBlock(newBlock)) {
       logger.log("🎉  Congratulations! A new block was mined. 💎")
     }
   }

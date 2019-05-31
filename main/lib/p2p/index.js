@@ -80,7 +80,7 @@ class PeerToPeer {
         break
       case CHECK_MAIN:
         logger.log("⬇  Peer requested for Mainchain.");
-        this.write(peer, messages.getResponseMain(blockchain))
+        this.write(peer, messages.getResponseMain(blockchain, message.trans))
         break
       case RESPONSE_BLOCKCHAIN:
         this.handleBlockchainResponse(message)

@@ -7,7 +7,7 @@ module.exports = class Block {
     return new Block(
       0,
       '0',
-      1501122600,
+      1559327167,
       'Welcome to Blockchain CLI!',
       '0000018035a828da0878ae92ab6fbb16be1ca87a02a3feaa9e3c2b6871931046',
       56551

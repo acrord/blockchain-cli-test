@@ -31,18 +31,19 @@ class Messages {
     }
   }
 
-  getiCheckMain () {
+  getCheckMain () {
     logger.log('⬆  Checking Main Chain');
     return {
       type: CHECK_MAIN
     }
   }
 
-  getResponseMain(blockchain){
+  getResponseMain(blockchain, trans){
    logger.log('⬆  MAIN entire blockchain');
     return {
       type: RESPONSE_MAIN,
-      data: JSON.stringify(blockchain.get())
+      data: JSON.stringify(blockchain.get()),
+      trans: trans,
     }
   }
 
@@ -60,9 +61,7 @@ class Messages {
     return {
       type: RESPONSE_TRANSACTION,
       trans: message,
-      data: JSON.stringify(blockchain.get())
-
-    
+      data: blockchain.latestBlock
     }
 
   }

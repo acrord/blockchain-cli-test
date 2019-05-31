@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const p2p = require('../lib/p2p');
 const blockchain = require('../lib/blockchain');
-let blockSize = 3;
+let blockSize = 100;
 // Welcome Page
 let peers = [3000];
 let port = 3001;

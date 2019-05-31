@@ -23,18 +23,20 @@ class Messages {
     }
   }
 
-  getCheckMain () {
+  getCheckMain (trans) {
     logger.log('⬆  Checking Main Chain');
     return {
-      type: CHECK_MAIN
+      type: CHECK_MAIN,
+      trans: trans
     }
   }
 
-  getResponseMain(blockchain){
+  getResponseMain(blockchain, trans){
    logger.log('⬆  MAIN entire blockchain');
     return {
       type: RESPONSE_MAIN,
-      data: JSON.stringify(blockchain.get())
+      data: JSON.stringify(blockchain.get()),
+      trans: trans
     }
   }
 
