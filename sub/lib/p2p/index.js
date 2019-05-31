@@ -3,7 +3,9 @@ const {
   QUERY_LATEST,
   QUERY_ALL,
   RESPONSE_BLOCKCHAIN,
-  RESPONSE_TRANSACTION
+  RESPONSE_TRANSACTION,
+  CHECK_MAIN,
+  RESPONSE_MAIN
 } = require('./messages/message-type');
 const wrtc = require('wrtc');
 const Exchange = require('peer-exchange');
@@ -11,6 +13,7 @@ const p2p = new Exchange('blockchain.js', { wrtc: wrtc });
 const net = require('net');
 const blockchain = require('../blockchain')
 const logger = require('../cli/util/logger.js');
+
 
 class PeerToPeer {
   constructor() {
@@ -76,13 +79,19 @@ class PeerToPeer {
         logger.log("⬇  Peer requested for blockchain.");
         this.write(peer, messages.getResponseChainMsg(blockchain))
         break
+      case CHECK_MAIN:
+	logger.log("⬇  Peer requested for blockchain.");
+        this.write(peer, messages.getResponseMain(blockchain))
+        break
       case RESPONSE_BLOCKCHAIN:
         this.handleBlockchainResponse(message)
         break
       case RESPONSE_TRANSACTION:
-	blockchain.mine(message.data);
-        this.broadcastLatest();
-	break;
+	this.handleTransaction(message)
+	break
+      case RESPONSE_MAIN:
+	this.handleMainChain(message)
+	break
       default:
         logger.log(`❓  Received unknown message type ${message.type}`)
     }
@@ -110,6 +119,7 @@ class PeerToPeer {
 
   handleBlockchainResponse(message) {
     const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
+    console.log(receivedBlocks.length)
     const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
     const latestBlockHeld = blockchain.latestBlock;
 
@@ -132,8 +142,41 @@ class PeerToPeer {
     } else {
       logger.log(`⛓  Peer blockchain is longer than current blockchain.`)
       blockchain.replaceChain(receivedBlocks)
-      this.broadcast(messages.getResponseLatestMsg(blockchain))
+      this.broadcast(messages.getResponseChainMsg(blockchain))
     }
+  }
+
+  handleMainChain(message){
+    const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
+    console.log(receivedBlocks.length)
+    const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
+    const latestBlockHeld = blockchain.latestBlock;
+    if (latestBlockReceived.index == latestBlockHeld.index) {
+      if(latestBlockReceived.timestamp< latestBlockHeld.timestamp){
+      	logger.log(`💤  changed`)
+	blockchain.replaceChain(receivedBlocks)
+      }
+
+    } else if (latestBlockHeld.hash === latestBlockReceived.previousHash) {
+      logger.log(`👍  Previous hash received is equal to current hash. Append received block to blockchain.`)
+      blockchain.addBlockFromPeer(latestBlockReceived)
+      this.broadcast(messages.getResponseLatestMsg(blockchain))
+    } else if (receivedBlocks.length === 1) {
+      logger.log(`🤔  Received previous hash different from current hash. Get entire blockchain from peer.`)
+      this.broadcast(messages.getQueryAllMsg())
+    } else {
+      logger.log(`⛓  Peer blockchain is longer than current blockchain.`)
+      blockchain.replaceChain(receivedBlocks)
+      this.broadcast(messages.getResponseChainMsg(blockchain))
+    }
+
+  }
+
+  handleTransaction(message){
+    blockchain.mine(message.trans);
+    this.broadcastLatest();
+    this.peers[0].write(JSON.stringify(messages.getCheckMain()))
+
   }
 }
 

@@ -2,7 +2,9 @@ const {
   QUERY_LATEST,
   QUERY_ALL,
   RESPONSE_BLOCKCHAIN,
-  RESPONSE_TRANSACTION
+  RESPONSE_TRANSACTION,
+  CHECK_MAIN,
+  RESPONSE_MAIN
 } = require('./message-type');
 const logger = require('../../cli/util/logger.js');
 
@@ -18,6 +20,21 @@ class Messages {
     logger.log('⬆  Asking peer for entire blockchain');
     return {
       type: QUERY_ALL
+    }
+  }
+
+  getCheckMain () {
+    logger.log('⬆  Checking Main Chain');
+    return {
+      type: CHECK_MAIN
+    }
+  }
+
+  getResponseMain(blockchain){
+   logger.log('⬆  MAIN entire blockchain');
+    return {
+      type: RESPONSE_MAIN,
+      data: JSON.stringify(blockchain.get())
     }
   }
 
@@ -39,11 +56,14 @@ class Messages {
     }
   }
   
-  getBroadCastMsg (message){
+  getBroadCastMsg (blockchain, message){
     logger.log('⬆  Sending peer transAction');
     return {
       type: RESPONSE_TRANSACTION,
-      data: JSON.stringify({msg:message})
+      trans: JSON.stringify({msg:message}),
+      data: JSON.stringify([
+	blockchain.latestBlock
+      ])
     }
 
   }

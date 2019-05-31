@@ -2,7 +2,9 @@ const {
   QUERY_LATEST,
   QUERY_ALL,
   RESPONSE_BLOCKCHAIN,
-  RESPONSE_TRANSACTION
+  RESPONSE_TRANSACTION,
+  CHECK_MAIN,
+  RESPONSE_MAIN
 } = require('./message-type');
 const logger = require('../../cli/util/logger.js');
 
@@ -29,6 +31,21 @@ class Messages {
     }
   }
 
+  getiCheckMain () {
+    logger.log('⬆  Checking Main Chain');
+    return {
+      type: CHECK_MAIN
+    }
+  }
+
+  getResponseMain(blockchain){
+   logger.log('⬆  MAIN entire blockchain');
+    return {
+      type: RESPONSE_MAIN,
+      data: JSON.stringify(blockchain.get())
+    }
+  }
+
   getResponseLatestMsg (blockchain) {
     logger.log('⬆  Sending peer latest block');
     return {
@@ -38,11 +55,14 @@ class Messages {
       ])
     }
   }
-  getBroadCastMsg (message){
+  getBroadCastMsg (blockchain, message){
     logger.log('⬆  Sending peer transAction');
     return {
       type: RESPONSE_TRANSACTION,
-      data: message
+      trans: message,
+      data: JSON.stringify(blockchain.get())
+
+    
     }
 
   }

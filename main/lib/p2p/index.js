@@ -1,10 +1,11 @@
 const messages = require('./messages')
-const vorpal = require('vorpal')();
 const {
   QUERY_LATEST,
   QUERY_ALL,
   RESPONSE_BLOCKCHAIN,
-  RESPONSE_TRANSACTION
+  RESPONSE_TRANSACTION,
+  CHECK_MAIN,
+  RESPONSE_MAIN
 } = require('./messages/message-type');
 const wrtc = require('wrtc');
 const Exchange = require('peer-exchange');
@@ -77,12 +78,18 @@ class PeerToPeer {
         logger.log("⬇  Peer requested for blockchain.");
         this.write(peer, messages.getResponseChainMsg(blockchain))
         break
+      case CHECK_MAIN:
+        logger.log("⬇  Peer requested for Mainchain.");
+        this.write(peer, messages.getResponseMain(blockchain))
+        break
       case RESPONSE_BLOCKCHAIN:
         this.handleBlockchainResponse(message)
         break
       case RESPONSE_TRANSACTION:
-	break
-
+        break
+      case RESPONSE_MAIN:
+        this.handleMain(message)
+        break
       default:
         logger.log(`❓  Received unknown message type ${message.type}`)
     }
@@ -97,7 +104,7 @@ class PeerToPeer {
   }
 
   broadcastMining() {
-   this.broadcast(messages.getBroadCastMsg(`\"transAction ${this.tr++}\"`)) 
+   this.broadcast(messages.getBroadCastMsg(blockchain, `\"transAction ${this.tr++}\"`)) 
   }
 
   broadcast(message) {

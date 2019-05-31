@@ -31,7 +31,7 @@ class Blockchain {
       return null;
     }
 
-    if (newBlocks.length <= this.blockchain.length) {
+    if (newBlocks.length < this.blockchain.length) {
       logger.log("❌  Replacement chain is shorter than original. Won't replace existing blockchain.")
       return null;
     }
