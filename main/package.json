@@ -18,6 +18,7 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
+    "excel4node": "^1.7.2",
     "express": "^4.17.1",
     "ascii-table": "0.0.9",
     "cli-spinners": "^1.0.0",

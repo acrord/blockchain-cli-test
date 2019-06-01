@@ -25,7 +25,6 @@ class PeerToPeer {
       if (err) {
         logger.log(`❗  ${err}`);
       } else {
-	console.log(this.peers)
         logger.log('👥  A peer has connected to the server!')
         this.initConnection.call(this, connection)
       }
@@ -119,7 +118,6 @@ class PeerToPeer {
 
   handleBlockchainResponse(message) {
     const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
-    console.log(receivedBlocks.length)
     const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
     const latestBlockHeld = blockchain.latestBlock;
 
@@ -156,7 +154,9 @@ class PeerToPeer {
         blockchain.replaceChain(receivedBlocks)
       }
 
-    } else if (parseInt(latestBlockReceived.data.split(' ')[1]) >= parseInt(latestBlockHeld.data.split(' ')[1])) {
+    } 
+    if (parseInt(latestBlockReceived.data.split(' ')[1]) >= parseInt(message.trans.split(' ')[1])) {
+	console.log("return~~~~~~~~~~~~~~")
         return null;
     } else if (latestBlockHeld.hash === latestBlockReceived.previousHash) {
       logger.log(`👍  Previous hash received is equal to current hash. Append received block to blockchain.`)
