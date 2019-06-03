@@ -4,8 +4,10 @@ const {
   QUERY_ALL,
   RESPONSE_BLOCKCHAIN,
   RESPONSE_TRANSACTION,
-  RESPONSE_SENDMAIN,
-  RESPONSE_VALIDATOR,
+  SEND_PORT,
+  SEND_PROPOSER,
+  SEND_PROPOSAL,
+  SEND_VOTE,
   LOCK,
   UNLOCK
 } = require('./messages/message-type');
@@ -16,15 +18,17 @@ const net = require('net');
 const blockchain = require('../blockchain')
 const logger = require('../cli/util/logger.js');
 
+
 class PeerToPeer {
   constructor() {
-    this.hosts = [];
-    this.newBlock ={}
+    this.SMC = {}
+    this.port = '';
+    this.shardpeer={};
     this.peers = [];
-    this.tr = 1;
-    this.lock = false;
-    this.block = [],
-    this.voting = []
+    this.peerhosts=[];
+    this.voted = [];
+    this.newBlock ={};
+    this.stop=false
   }
 
   startServer (port) {
@@ -32,12 +36,11 @@ class PeerToPeer {
       if (err) {
         logger.log(`❗  ${err}`);
       } else {
-	this.hosts.push(port)
-	socket.port = port
         logger.log('👥  A peer has connected to the server!')
         this.initConnection.call(this, connection)
       }
     })).listen(port);
+    this.port = server.address().port;
     logger.log(`📡  listening to peers on ${server.address().address}:${server.address().port}... `);
   }
 
@@ -46,6 +49,11 @@ class PeerToPeer {
       if (err) {
         logger.log(`❗  ${err}`);
       } else {
+	if(port!=3000){
+	 this.peerhosts.push(port)
+         this.shardpeer[port] = connection
+	}
+	else{this.SMC = connection}
         logger.log('👥  Successfully connected to a new peer!');
         this.initConnection.call(this, connection);
       }
@@ -64,11 +72,11 @@ class PeerToPeer {
   }
 
   initConnection(connection) {
-	 console.log(connection)
     this.peers.push(connection);
     this.initMessageHandler(connection);
     this.initErrorHandler(connection);
     this.write(connection, messages.getQueryChainLengthMsg());
+    this.write(connection, messages.sendPort(this.port));
   }
 
   initMessageHandler(connection) {
@@ -80,13 +88,6 @@ class PeerToPeer {
 
   handleMessage(peer, message) {
     switch (message.type) {
-      case LOCK:
-	break
-      case UNLOCK:
-	this.voting.push(message.data)
-	if(this.voting.length != this.hosts.length) return null;
-	this.lock = false;
-	break
       case QUERY_LATEST:
         logger.log(`⬇  Peer requested for latest block.`);
         this.write(peer, messages.getResponseLatestMsg(blockchain))
@@ -95,22 +96,28 @@ class PeerToPeer {
         logger.log("⬇  Peer requested for blockchain.");
         this.write(peer, messages.getResponseChainMsg(blockchain))
         break
-      case RESPONSE_VALIDATOR:
-        logger.log("⬇  Peer requested for Validate.");
-        this.handleValidate(message)
+      case SEND_PORT:
+	logger.log("Peer requested connect.");
+	this.peerhosts.push(message.port)
+	this.shardpeer[message.port] = peer
         break
-      case RESPONSE_SENDMAIN:
-        logger.log("⬇  Select Block Builder.");
-        this.handleBlockBuilder(message, peer)
-        break
-
       case RESPONSE_BLOCKCHAIN:
         this.handleBlockchainResponse(message)
         break
-      case RESPONSE_TRANSACTION:
-        break
-      case RESPONSE_MAIN:
-        this.handleMain(message)
+      case SEND_PROPOSER:
+	this.startTransaction(message, peer)
+	break
+      case SEND_PROPOSAL:
+	this.voting(message, peer)
+	break
+      case SEND_VOTE:
+	this.validate(message, peer)
+	break
+      case LOCK:
+        this.lock
+	break
+      case UNLOCK:
+
         break
       default:
         logger.log(`❓  Received unknown message type ${message.type}`)
@@ -125,11 +132,6 @@ class PeerToPeer {
     this.broadcast(messages.getResponseLatestMsg(blockchain))
   }
 
-  selectValidator() {
-   this.broadcast(messages.getBroadCastMsg(blockchain, `\"transAction ${this.tr++}\"`))
-   this.broadcast(messages.getLock())
-  }
-
   broadcast(message) {
     this.peers.forEach(peer => this.write(peer, message))
   }
@@ -141,44 +143,6 @@ class PeerToPeer {
   closeConnection() {
 
   }
-
-  Locking(){
-    if(this.lock === true){
-      setTimeout(()=>this.Locking(), 50);
-      return;
-    }
-    let count = 0;
-    for(let i = 0; i < this.voting.length; ++i){
-      if(this.voting[i] == true)
-        count++;
-    }
-    if(count >= this.hosts.length*2/3){
-      blockchain.addBlockFromPeer(this.newBlock)
-      this.broadcast(messages.getResponseLatestMsg(blockchain))
-      this.broadcast(messages.getUnlock())
-    } else{
-	console.log("rejected!!")
-     this.broadcast(messages.getUnlock())
-    }
-    this.voting = []
-    this.newBlock = {}
-  }
-
-  handleBlockBuilder(message, peer) {
-    const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
-    const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
-    this.block.push(latestBlockReceived)
-    if(this.block.length != this.hosts.length) {
-	    return null
-    }
-    let rand = Math.floor(Math.random()*this.hosts.length)
-    this.newBlock = this.block[rand]
-    this.broadcast(messages.getResponseValidate(this.newBlock))
-    this.block= []
-    this.lock = true
-    this.Locking()
-  }
-
 
   handleBlockchainResponse(message) {
     const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
@@ -204,7 +168,38 @@ class PeerToPeer {
     } else {
       logger.log(`⛓  Peer blockchain is longer than current blockchain.`)
       blockchain.replaceChain(receivedBlocks)
+      this.broadcast(messages.getResponseChainMsg(blockchain))
     }
+  }
+
+  //peer is SMC
+  //PROPOSER
+  startTransaction(message, peer){
+   this.newBlock = blockchain.mine(message.data);
+   this.voted = []
+   if(this.peerhosts.length == 0) this.write(this.SMC, messages.validateChain({block:this.newBlock, port:this.port }))
+   for(let i=0;i<this.peerhosts.length;i++){
+     this.write(this.shardpeer[this.peerhosts[i]],messages.getProposal(this.newBlock))
+   }
+  }
+  //if commitee
+  voting(message, peer){
+    const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
+    const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
+    const latestBlockHeld = blockchain.latestBlock;
+    let result = true;
+    if (latestBlockHeld.hash !== latestBlockReceived.previousHash){
+       result = false;
+    }
+    else if(latestBlockReceived.index < latestBlockHeld.index) result = false
+    this.write(peer, messages.sendVote(result))
+  }
+  
+  validate(message, peer){
+   this.voted.push(message)
+   if(this.voted.length != this.peerhosts.length)
+     return null;
+   this.write(this.SMC, messages.validateChain({block:this.newBlock, port:this.port}))
   }
 
 }

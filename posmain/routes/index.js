@@ -15,8 +15,7 @@ function doStuff(){
   }
 
   getItem = blockchain.get().length
-//  p2p.broadcast(messages.getLock()
-var  test  =Math.floor(Math.random()*peers.length)-1
+  var  test  =Math.floor(Math.random()*peers.length)-1
   p2p.selectValidator()
 }
 
@@ -26,7 +25,6 @@ router.get('/connect', (req, res) => {
 });
 
 router.get('/test', async(req,res)=>{
- //  p2p.broadcast(messages.getLock())
    p2p.selectValidator()
    for(var i = 0; i<blockSize-1; i++){
    	doStuff(); 
