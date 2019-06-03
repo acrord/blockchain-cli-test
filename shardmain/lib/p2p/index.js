@@ -20,13 +20,16 @@ class PeerToPeer {
   constructor() {
     this.peers = [];
     this.peerhosts = [];
-    this.proposer1={};
-    this.proposer2 ={};
+    this.proposer1 = {};
+    this.proposer2 = {};
+    this.proposer3 = {};
     this.tr = 1;
     this.shard1 = {};
     this.shardpeers1=[];
     this.shard2 = {};
     this.shardpeers2=[];
+    this.shard3 = {};
+    this.shardpeers3=[];
   }
 
   startServer (port) {
@@ -114,18 +117,23 @@ class PeerToPeer {
     this.broadcast(messages.getResponseLatestMsg(blockchain))
   }
 
-  broadcastMining(shard1, shard2) {
+  broadcastMining(shard1, shard2, shard3) {
     this.shard1 = shard1;
     this.shard2 = shard2;
+    this.shard3 = shard3;
     var count1 = 0;
     var count2 = 0;
+    var count3 = 0;
     for(let i =0;i<this.peerhosts.length;i++){
       if(this.shard1[this.peerhosts[i]]==1){
           if(count1==0){this.proposer1 = this.peers[i]; count1++}
           this.shardpeers1.push(this.peers[i])
-       }else{
+       }else if(this.shard2[this.peerhosts[i]]==1){
           if(count2==0){this.proposer2 = this.peers[i]; count2++}
           this.shardpeers2.push(this.peers[i])
+       }else{
+	  if(count3==0){this.proposer3 = this.peers[i]; count3++}
+          this.shardpeers3.push(this.peers[i])
        }
 
     }
@@ -139,14 +147,19 @@ class PeerToPeer {
     if(Object.keys(this.proposer2).length!=0){
       this.write(this.proposer2, messages.sendStart(`\"transAction ${this.tr++}\"`))
     }
+    if(Object.keys(this.proposer3).length!=0){
+      this.write(this.proposer3, messages.sendStart(`\"transAction ${this.tr++}\"`))
+    }
   }
 
   restartTransaction(port){
     if(this.shard1[port]==1){
       this.write(this.proposer1, messages.sendStart(`\"transAction ${this.tr++}\"`))
     }
-    else{
+    else if(this.shard2[port]==1){
       this.write(this.proposer2, messages.sendStart(`\"transAction ${this.tr++}\"`))
+    }else{
+      this.write(this.proposer3, messages.sendStart(`\"transAction ${this.tr++}\"`))
     }
   }
 

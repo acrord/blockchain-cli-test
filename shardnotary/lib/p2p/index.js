@@ -28,7 +28,6 @@ class PeerToPeer {
     this.peerhosts=[];
     this.voted = [];
     this.newBlock ={};
-    this.stop=false
   }
 
   startServer (port) {
