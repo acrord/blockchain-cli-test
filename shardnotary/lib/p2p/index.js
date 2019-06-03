@@ -199,7 +199,19 @@ class PeerToPeer {
    this.voted.push(message)
    if(this.voted.length != this.peerhosts.length)
      return null;
-   this.write(this.SMC, messages.validateChain({block:this.newBlock, port:this.port}))
+
+   let count = 0;
+   for(let i = 0; i < this.voted.length; ++i){
+     if(this.voted[i].data == true)
+       count++;
+   }
+   if(count >= this.peerhosts.length*2/3){
+     this.write(this.SMC, messages.validateChain({block:this.newBlock, port:this.port}))
+   } else{
+     console.log("rejected!!")
+     this.startTransaction({data:this.newBlock.data}, peer)
+   }
+   this.voted = []
   }
 
 }

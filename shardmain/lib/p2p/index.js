@@ -18,7 +18,6 @@ const blockSize = 100;
 
 class PeerToPeer {
   constructor() {
-    this.lock = false;
     this.peers = [];
     this.peerhosts = [];
     this.proposer1={};
@@ -98,7 +97,6 @@ class PeerToPeer {
         break
       case RESPONSE_TRANSACTION:
 	this.resendTransaction(message);
-	this.lock = true;
         break
       case RESPONSE_MAIN:
         this.handleMain(message)
@@ -154,19 +152,26 @@ class PeerToPeer {
 
 
   resendTransaction(message){
-//    if(this.lock === true){
-//      setTimeout(()=>this.resendTransaction(message), 50);
-//      return;
-//    }
     const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
     const latestBlockReceived = blockchain.mine(receivedBlocks[receivedBlocks.length - 1].data);
     console.log(latestBlockReceived)
     const latestBlockHeld = blockchain.latestBlock;
+    if (latestBlockReceived.index <= latestBlockHeld.index) {
+      logger.log(`💤  Received latest block is not longer than current blockchain. Do nothing`)
+      return null;
+    }
+
     if (latestBlockHeld.hash === latestBlockReceived.previousHash) {
       logger.log(`👍  Previous hash received is equal to current hash. Append received block to blockchain.`)
       blockchain.addBlockFromPeer(latestBlockReceived)
+      this.broadcast(messages.getResponseLatestMsg(blockchain))
+    } else if (receivedBlocks.length === 1) {
+      logger.log(`🤔  Received previous hash different from current hash. Get entire blockchain from peer.`)
+      this.broadcast(messages.getQueryAllMsg())
+    } else {
+      logger.log(`⛓  Peer blockchain is longer than current blockchain.`)
+      blockchain.replaceChain(receivedBlocks)
     }
-//    this.lock = false;
     if(this.tr >100) {
      logger.log("finished!!!")
      return null 
