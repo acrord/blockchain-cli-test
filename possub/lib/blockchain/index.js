@@ -16,6 +16,7 @@ class Blockchain {
     return this.blockchain[this.blockchain.length - 1]
   }
 // not mine just create block
+	// it will check validation in validation process
   mine (seed) {
     const lastBlock = this.latestBlock;
     const newBlock = this.generateNextBlock(seed)

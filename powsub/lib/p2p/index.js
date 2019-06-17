@@ -4,9 +4,8 @@ const {
   QUERY_ALL,
   RESPONSE_BLOCKCHAIN,
   RESPONSE_TRANSACTION,
-  SEND_PORT,
-  RESPONSE_MAIN,
-  SEND_PROPOSER
+  CHECK_MAIN,
+  RESPONSE_MAIN
 } = require('./messages/message-type');
 const wrtc = require('wrtc');
 const Exchange = require('peer-exchange');
@@ -14,23 +13,11 @@ const p2p = new Exchange('blockchain.js', { wrtc: wrtc });
 const net = require('net');
 const blockchain = require('../blockchain')
 const logger = require('../cli/util/logger.js');
-const blockSize = 100;
+
 
 class PeerToPeer {
   constructor() {
     this.peers = [];
-    this.peerhosts = [];
-    //it will need for saving proposer's socket
-    this.proposer1 = {};
-    this.proposer2 = {};
-    this.proposer3 = {};
-    this.tr = 1;
-    this.shard1 = {};
-    this.shardpeers1=[];
-    this.shard2 = {};
-    this.shardpeers2=[];
-    this.shard3 = {};
-    this.shardpeers3=[];
   }
 
   startServer (port) {
@@ -50,7 +37,6 @@ class PeerToPeer {
       if (err) {
         logger.log(`❗  ${err}`);
       } else {
-	socket.port = port
         logger.log('👥  Successfully connected to a new peer!');
         this.initConnection.call(this, connection);
       }
@@ -92,19 +78,20 @@ class PeerToPeer {
         logger.log("⬇  Peer requested for blockchain.");
         this.write(peer, messages.getResponseChainMsg(blockchain))
         break
-      case SEND_PORT:
-        logger.log("Peer requested connect.");
-        this.peerhosts.push(message.port)
+      case CHECK_MAIN:
+	logger.log("⬇  Peer requested for blockchain.");
+        this.write(peer, messages.getResponseMain(blockchain, message.trans))
         break
       case RESPONSE_BLOCKCHAIN:
         this.handleBlockchainResponse(message)
         break
+      //transaction을 받아 mine 수행
       case RESPONSE_TRANSACTION:
-	this.resendTransaction(message);
-        break
+	this.handleTransaction(message)
+	break
       case RESPONSE_MAIN:
-        this.handleMain(message)
-        break
+	this.handleMainChain(message)
+	break
       default:
         logger.log(`❓  Received unknown message type ${message.type}`)
     }
@@ -118,83 +105,6 @@ class PeerToPeer {
     this.broadcast(messages.getResponseLatestMsg(blockchain))
   }
 
-  broadcastMining(shard1, shard2, shard3) {
-    this.shard1 = shard1;
-    this.shard2 = shard2;
-    this.shard3 = shard3;
-    var count1 = 0;
-    var count2 = 0;
-    var count3 = 0;
-//start chain
-    for(let i =0;i<this.peerhosts.length;i++){
-      if(this.shard1[this.peerhosts[i]]==1){
-          if(count1==0){this.proposer1 = this.peers[i]; count1++}
-          this.shardpeers1.push(this.peers[i])
-       }else if(this.shard2[this.peerhosts[i]]==1){
-          if(count2==0){this.proposer2 = this.peers[i]; count2++}
-          this.shardpeers2.push(this.peers[i])
-       }else{
-	  if(count3==0){this.proposer3 = this.peers[i]; count3++}
-          this.shardpeers3.push(this.peers[i])
-       }
-
-    }
-    this.startTransaction();
-  }
-// start proposer create collation
-  startTransaction(){
-    if(Object.keys(this.proposer1).length!=0){
-      this.write(this.proposer1, messages.sendStart(`\"transAction ${this.tr++}\"`))
-    }
-    if(Object.keys(this.proposer2).length!=0){
-      this.write(this.proposer2, messages.sendStart(`\"transAction ${this.tr++}\"`))
-    }
-    if(Object.keys(this.proposer3).length!=0){
-      this.write(this.proposer3, messages.sendStart(`\"transAction ${this.tr++}\"`))
-    }
-  }
-
-//if one shard finish the transaction then start next proposal
-  restartTransaction(port){
-    if(this.shard1[port]==1){
-      this.write(this.proposer1, messages.sendStart(`\"transAction ${this.tr++}\"`))
-    }
-    else if(this.shard2[port]==1){
-      this.write(this.proposer2, messages.sendStart(`\"transAction ${this.tr++}\"`))
-    }else{
-      this.write(this.proposer3, messages.sendStart(`\"transAction ${this.tr++}\"`))
-    }
-  }
-
-//트랜잭션이 꼬였을 때 재전송해서 처리
-  resendTransaction(message){
-    const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
-    const latestBlockReceived = blockchain.mine(receivedBlocks[receivedBlocks.length - 1].data);
-    console.log(latestBlockReceived)
-    const latestBlockHeld = blockchain.latestBlock;
-    if (latestBlockReceived.index <= latestBlockHeld.index) {
-      logger.log(`💤  Received latest block is not longer than current blockchain. Do nothing`)
-      return null;
-    }
-
-    if (latestBlockHeld.hash === latestBlockReceived.previousHash) {
-      logger.log(`👍  Previous hash received is equal to current hash. Append received block to blockchain.`)
-      blockchain.addBlockFromPeer(latestBlockReceived)
-      this.broadcast(messages.getResponseLatestMsg(blockchain))
-    } else if (receivedBlocks.length === 1) {
-      logger.log(`🤔  Received previous hash different from current hash. Get entire blockchain from peer.`)
-      this.broadcast(messages.getQueryAllMsg())
-    } else {
-      logger.log(`⛓  Peer blockchain is longer than current blockchain.`)
-      blockchain.replaceChain(receivedBlocks)
-    }
-    if(this.tr >100) {
-     logger.log("finished!!!")
-     return null 
-    }
-    this.restartTransaction(message.port)
-  }
-
   broadcast(message) {
     this.peers.forEach(peer => this.write(peer, message))
   }
@@ -203,7 +113,10 @@ class PeerToPeer {
     peer.write(JSON.stringify(message));
   }
 
-//Test를 위해 다른 노드에서도 같은 체인을 사용하도록 설정
+  closeConnection() {
+
+  }
+
   handleBlockchainResponse(message) {
     const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
     const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
@@ -228,9 +141,45 @@ class PeerToPeer {
     } else {
       logger.log(`⛓  Peer blockchain is longer than current blockchain.`)
       blockchain.replaceChain(receivedBlocks)
+      this.broadcast(messages.getResponseChainMsg(blockchain))
     }
   }
 
+  handleMainChain(message){
+    const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
+    const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
+    const latestBlockHeld = blockchain.latestBlock;
+    if (latestBlockReceived.index == latestBlockHeld.index) {
+      if(latestBlockReceived.timestamp< latestBlockHeld.timestamp){
+        logger.log(`💤  changed`)
+        blockchain.replaceChain(receivedBlocks)
+      }
+
+    } 
+    //순서가 맞지 않으면 리턴
+    //다른 peer가 앞서면 peer chain을 받아옴
+    if (parseInt(latestBlockReceived.data.split(' ')[1]) >= parseInt(message.trans.split(' ')[1])) {
+	console.log("return~~~~~~~~~~~~~~")
+        return null;
+    } else if (latestBlockHeld.hash === latestBlockReceived.previousHash) {
+      logger.log(`👍  Previous hash received is equal to current hash. Append received block to blockchain.`)
+      blockchain.addBlockFromPeer(latestBlockReceived)
+      this.broadcast(messages.getResponseLatestMsg(blockchain))
+    } else if (receivedBlocks.length === 1) {
+      logger.log(`🤔  Received previous hash different from current hash. Get entire blockchain from peer.`)
+      this.broadcast(messages.getQueryAllMsg())
+    } else {
+      logger.log(`⛓  Peer blockchain is longer than current blockchain.`)
+      blockchain.replaceChain(receivedBlocks)
+      this.broadcast(messages.getResponseChainMsg(blockchain))
+    }
+    //start mining when all status ok 
+    blockchain.mine(message.trans);
+    this.broadcastLatest()
+  }
+  handleTransaction(message){
+    this.peers[0].write(JSON.stringify(messages.getCheckMain(message.trans)))
+  }
 }
 
 

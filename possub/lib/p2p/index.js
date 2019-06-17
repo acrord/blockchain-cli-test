@@ -72,6 +72,7 @@ class PeerToPeer {
     })
   }
 
+  //투표가 완료되기 전까지 기다림
   Locking(){
     if(this.lock === true){
       setTimeout(()=>this.Locking(), 50);
@@ -86,6 +87,7 @@ class PeerToPeer {
 	this.lock = true
 	this.Locking()  
 	break
+      //if complete the validation then release lock
       case UNLOCK:
         this.lock = false
 	break
@@ -160,7 +162,8 @@ class PeerToPeer {
     }
   }
 
-  
+  //validation process
+	//check previous hash & index of transaction(block)
   handleValidate(peer, message) {
     const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
     const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
@@ -174,6 +177,7 @@ class PeerToPeer {
     this.write(peer, messages.getUnlock(result)) 
   }
 
+  //if 블록 생산자 then create block and locking all peers and check validation
   handleTransaction(message, peer){
     this.lock = true;
     let newBlock = blockchain.mine(message.trans);

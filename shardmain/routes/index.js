@@ -11,11 +11,14 @@ let shard3 = {};
 let port = 3001;
 let getItem = blockchain.get().length
 
+/*
+ * Shard 배정 프로세스 SMC 역할 수행 현재 3개의 샤드를 구성
+ *노드의 수가 적기 때문에 랜덤 배정과 함께 수 제한도 사용
+ * */
 router.get('/connect', (req, res) => {
 	const random = Math.floor(Math.random() * shardNum) 
 	let peers;
 	if(random == 0){
-          //peer의 수가 너무적어서 사용
 	  if(shard1.length == 3){
 		if(shard2.legnth != 3){
 		  peers = shard2;

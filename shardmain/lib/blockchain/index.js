@@ -16,7 +16,8 @@ class Blockchain {
   get latestBlock () {
     return this.blockchain[this.blockchain.length - 1]
   }
-
+//not mine in mainchain
+//just create collation using collation header from shard
   mine (seed) {
     const newBlock = this.generateNextBlock(seed)
     return newBlock

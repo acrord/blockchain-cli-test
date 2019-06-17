@@ -1,36 +1,31 @@
+/*managing the node connections*/
 const express = require('express');
 const router = express.Router();
 const p2p = require('../lib/p2p');
 const blockchain = require('../lib/blockchain');
 let blockSize =100;
+// Welcome Page
+let peers = [3000];
 let port = 3001;
-let peers = {} 
 let getItem = blockchain.get().length
 
-/*
- * 하나의 블록이 생성되면 다음 트랜잭션 전달
- * */
 function doStuff(){
   
   if(getItem === blockchain.get().length){
     setTimeout(doStuff, 50);
     return;
   }
-
   getItem = blockchain.get().length
-  var  test  =Math.floor(Math.random()*peers.length)-1
-  p2p.selectValidator()
+   p2p.broadcastMining()
 }
 
 router.get('/connect', (req, res) => {
-	//if new node connection then give port++
-	peers[port]=1
-	res.send({port:port++, peers: peers});
+	peers.push(port)
+	res.send({port:port++});
 });
 
 router.get('/test', async(req,res)=>{
-   //블록 생산자를 정하고 검증을 시작
-   p2p.selectValidator()
+   p2p.broadcastMining()
    for(var i = 0; i<blockSize-1; i++){
    	doStuff(); 
    }

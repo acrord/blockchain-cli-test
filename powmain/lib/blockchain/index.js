@@ -7,6 +7,7 @@ const logBlockchain = require('../cli/util/table.js');
 class Blockchain {
   constructor () {
     this.blockchain = [Block.genesis]
+    this.difficulty = 4
   }
 
   get () {
@@ -16,7 +17,7 @@ class Blockchain {
   get latestBlock () {
     return this.blockchain[this.blockchain.length - 1]
   }
-//if main not use this method
+//메인에서는 mine을 하지 않는다.
   mine (seed) {
     const newBlock = this.generateNextBlock(seed)
     if(this.addBlock(newBlock)) {
@@ -93,6 +94,9 @@ class Blockchain {
     } else if (blockHash !== newBlock.hash) {
       logger.log(`❌  invalid hash: ${blockHash} ${newBlock.hash}`)
       return false
+    } else if (!this.isValidHashDifficulty(this.calculateHashForBlock(newBlock))) {
+      logger.log(`❌  invalid hash does not meet difficulty requirements: ${this.calculateHashForBlock(newBlock)}`);
+      return false;
     }
     return true
   }

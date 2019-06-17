@@ -164,6 +164,7 @@ class PeerToPeer {
     this.newBlock = {}
   }
 
+//검증된 블록을 메인체인에 추가하고 알림
   handleBlockBuilder(message, peer) {
     const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
     const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];

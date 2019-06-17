@@ -173,6 +173,7 @@ class PeerToPeer {
 
   //peer is SMC
   //PROPOSER
+  //Proposer가 proposal을 생성 후 committee에게 전달
   startTransaction(message, peer){
    this.newBlock = blockchain.mine(message.data);
    this.voted = []
@@ -181,7 +182,8 @@ class PeerToPeer {
      this.write(this.shardpeer[this.peerhosts[i]],messages.getProposal(this.newBlock))
    }
   }
-  //if commitee
+  //if committee
+	//check validation and send vote
   voting(message, peer){
     const receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index));
     const latestBlockReceived = receivedBlocks[receivedBlocks.length - 1];
@@ -193,7 +195,8 @@ class PeerToPeer {
     else if(latestBlockReceived.index < latestBlockHeld.index) result = false
     this.write(peer, messages.sendVote(result))
   }
-  
+//in proposer check for vote  
+//Excutor 역할 같이 실행
   validate(message, peer){
    this.voted.push(message)
    if(this.voted.length != this.peerhosts.length)

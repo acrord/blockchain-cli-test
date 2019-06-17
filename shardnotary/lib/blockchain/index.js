@@ -16,7 +16,7 @@ class Blockchain {
   get latestBlock () {
     return this.blockchain[this.blockchain.length - 1]
   }
-
+// it is collation
   mine (seed) {
     const lastBlock = this.latestBlock;
     const newBlock = this.generateNextBlock(seed)
