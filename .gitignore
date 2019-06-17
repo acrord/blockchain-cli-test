@@ -1,7 +1,6 @@
-sub/node_modules
-main/node_modules
+powsub/node_modules
+powmain/node_modules
 posmain/node_modules
 possub/node_modules
 shardmain/node_modules
 shardnotary/node_modules
-blockchain-cli
